@@ -35,7 +35,7 @@ Note: a livello di simulazione identico v.1.1.0; dati con light yield ridotto x1
 
 ##########################################################################################
 
-### CsI-wls_v1.2.2 ### (ATTUALMENTE IN USO)
+### CsI-wls_v1.2.2 ###
 Prima modifca proprietà ottiche
 - Spettro assorbimento WLS KurarayY11 aggiornato
 Note: dati con light yield ridotto x10
