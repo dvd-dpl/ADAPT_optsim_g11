@@ -1,0 +1,34 @@
+/run/initialize
+/tracking/verbose 0
+
+#Geometry
+#/APT/Geometry/setCaloSize 14. 14. 0.5 cm
+/APT/Geometry/setSiPMThickness 0.4 mm
+/APT/Geometry/setSiPMSide 3. mm
+/APT/Geometry/setSiPMSpacing 1. mm
+/APT/Geometry/setFiberDiameter 1. mm
+/APT/Geometry/setCladdingPercentuage 0.02
+/APT/Geometry/SiPMCaloFlag true
+
+###*GPS*###
+#/gps/particle mu+
+#/gps/direction 0 0 -1
+#/gps/pos/type Plane
+#/gps/pos/shape Rectangle
+#/gps/pos/centre 0.05 0.05 2 cm
+#/gps/pos/halfx 0.5 mm
+#/gps/pos/halfy 0.5 mm
+#/gps/ene/type Mono
+#/gps/ene/mono 1 GeV
+/run/initialize
+/gps/particle opticalphoton
+/gps/position 0 0 0 cm
+/gps/direction 0 1 0
+/gps/pos/type Beam
+/gps/ang/type iso
+/gps/ene/type Mono
+/gps/ene/mono 1000 keV
+
+/RunManager/NameOfOutputFile Prova2
+
+/run/beamOn 20

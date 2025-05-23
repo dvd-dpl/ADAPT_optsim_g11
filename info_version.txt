@@ -1,0 +1,51 @@
+### CsI-wls_v.1.0.0 ###
+Versione originale
+- Piano 45x45 (tile 15x15)
+- SiPMA/B vista X/Y fibre
+- SiPM calorimetro blocco unico
+- Fibre 45 cm x 225
+- Lettura su tutti i lati
+
+##########################################################################################
+
+### CsI-wls_v.1.1.0 ###
+Prima modifica design
+- Piano 45x45 (tile 15x15)
+- SiPMA/B vista X/Y fibre
+- SiPMA/B calorimetro 40xtile
+- Fibre 45cm + 15cm ext x 225
+- Lettura solo su sensori tipo A
+- Superfici riflettenti con sensori tipo B
+Note: dati con light yield ridotto x100
+
+##########################################################################################
+
+### CsI-wls_v1.2.0 ### 
+Seconda modifica design
+- Piano 45x45 (tile 15x15)
+- SiPMA vista X/Y fibre
+- Mirror vista X/Y fibre
+- SiPMA calorimetro 40xtile
+- Fibre 45cm + 15cm ext x 225
+- Lettura incrociata viste XY fibre-calo
+- Wrapping riflettente attorno il piano
+- Superfice assorbente tra edgeA e wrapping 
+- Superfice riflettente tra edgeB e wrapping
+Note: a livello di simulazione identico v.1.1.0; dati con light yield ridotto x100
+
+##########################################################################################
+
+### CsI-wls_v1.2.2 ### (ATTUALMENTE IN USO)
+Prima modifca proprietà ottiche
+- Spettro assorbimento WLS KurarayY11 aggiornato
+Note: dati con light yield ridotto x10
+
+##########################################################################################
+
+
+##########################################################################################
+
+### CsI-wls_v2.0.0 ### (ATTUALMENTE IN USO)
+Modifiche per farlo funzionare su Geant4 v11.2.1
+Modificati file in OptData:
+- Spettri assorbimento e emissione WLS e CsI ordinati in maniera crescente

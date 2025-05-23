@@ -1,0 +1,20 @@
+Module 0 -> World
+       n -> Nuber of the Module
+
+Volume 0 -> World
+       1 -> Tile
+       2 -> Tile Glue
+       3 -> CoreX
+       4 -> CladdingX
+       5 -> CoreY
+       6 -> CladdingY
+       7 -> Calorimiter SiPMXA
+       8 -> Calorimiter SiPMXB
+       9 -> Calorimiter SiPMYA
+       10 -> Calorimiter SiPMYB
+       11 -> Fiber SiPMXA
+       12 -> Fiber SiPMXB
+       13 -> Fiber SiPMYA
+       14 ->Fiber SiPMYB
+
+Fiber n -> Number of the fiber or for Calo SiPM

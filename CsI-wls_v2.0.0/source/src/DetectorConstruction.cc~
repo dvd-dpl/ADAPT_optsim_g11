@@ -1,0 +1,595 @@
+#include "DetectorConstruction.hh"
+#include "OneHit.hh"
+#include "PhotonHit.hh"
+#include "ComPairHit.hh"
+#include "DetectorMessenger.hh"
+
+#include "SensitiveDetector.hh"
+
+#include "G4RunManager.hh"
+#include "G4NistManager.hh"
+#include "G4Box.hh"
+#include "G4Cons.hh"
+#include "G4Orb.hh"
+#include "G4Sphere.hh"
+#include "G4Trd.hh"
+#include "G4LogicalVolume.hh"
+#include "G4PVPlacement.hh"
+#include "G4SystemOfUnits.hh"
+#include "G4SDManager.hh"
+#include "G4VisAttributes.hh"
+#include "G4SubtractionSolid.hh"
+#include <math.h>
+#include "OptMaterials.hh"
+
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+DetectorConstruction::DetectorConstruction()
+: G4VUserDetectorConstruction()
+{
+  fDetectorMessenger = new DetectorMessenger(this);
+  fMaterials = OptMaterials::GetInstance();
+  //Geometry Messanger variables
+  fTileSize=G4ThreeVector(15.*cm,15.*cm,0.5*cm);
+  fNTile=3;
+  fFiberExtra = 15.*cm; 
+  fGlueThick=1*mm;
+  fSiPMThikness=0.4*mm;
+  fSiPMSide=3*mm;
+  fSiPMSpacing=1*mm;
+
+  fSiPMCaloThikness=0.4*mm;
+  fSiPMCaloSide=3*mm;
+  fSiPMCaloSpacing=0.5*mm;
+
+  // New GlueEdges
+  fGlueEdges = 1*mm;
+  
+  //Fiber
+  fFiberSize=2.*mm;
+  fCladdingPercentuage=0.02; //% 0.02
+
+}
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+DetectorConstruction::~DetectorConstruction()
+{
+  if (fDetectorMessenger) delete fDetectorMessenger;
+}
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+G4VPhysicalVolume* DetectorConstruction::Construct()
+{
+  // Get nist material manager
+  //G4NistManager* nist = G4NistManager::Instance();
+
+  // Option to switch on/off checking of volumes overlaps
+  //
+  G4bool checkOverlaps = true;
+  G4bool checkOverlapsFiber = false;
+
+  //
+  //Geometric variables
+  //
+  G4double TileX = fTileSize[0];
+  G4double TileY = fTileSize[1];
+  G4double TileZ = fTileSize[2];
+  int NTile = fNTile;
+  G4double GlueThick = fGlueThick;
+  G4double GlueEdges = fGlueEdges;
+  G4double CaloX = TileX*NTile+GlueThick*(NTile-1);
+  G4double CaloY = TileY*NTile+GlueThick*(NTile-1);
+  G4double CaloZ = TileZ;
+  
+  
+  G4double SiPMThikness = fSiPMThikness;
+  //G4double SiPMSide = fSiPMSide;
+  //G4double SiPMSpacing = fSiPMSpacing;
+  
+  G4double SiPMCaloThikness = fSiPMCaloThikness;
+  G4double SiPMCaloSide = fSiPMCaloSide;
+  G4double SiPMCaloSpacing = fSiPMCaloSpacing;
+  
+  int NCaloSiPMx = 40;
+  int NCaloSiPMy = 40;
+  double SiPMCaloPitch = SiPMCaloSide+SiPMCaloSpacing;
+  double SiPMTileMargin = 0.5*(TileX - SiPMCaloPitch*NCaloSiPMx+SiPMCaloSpacing); 
+  
+  //int NSiPMx = (int)(CaloX/(SiPMSide+SiPMSpacing));
+  //int NSiPMy = (int)(CaloY/(SiPMSide+SiPMSpacing));
+  //double latspacingx=(CaloX-NSiPMx*(SiPMSide+SiPMSpacing))*0.5;
+  //double latspacingy=(CaloY-NSiPMy*(SiPMSide+SiPMSpacing))*0.5;
+  
+  //
+  //CaloWrapping 
+  // 
+  G4double wrapX = 0.5*( CaloX + 2*(0.4*SiPMCaloThikness + GlueEdges) );
+  G4double wrapY = 0.5*( CaloY + 2*(0.4*SiPMCaloThikness + GlueEdges) );
+  G4double wrapZ = 0.5*CaloZ;
+  
+  //
+  //Fiber
+  //
+  G4double AirGap = 0*um;
+  G4double FiberSize = fFiberSize+AirGap;
+  G4double FiberWidth = 2*mm; 
+  G4double CladdingPercentuage = fCladdingPercentuage;
+  G4double FiberLengthY = CaloY + fFiberExtra;   // totale (tile + sbordo)
+  G4double FiberLengthX = CaloX + fFiberExtra;   // totale (tile + sbordo)
+
+  //
+  //Module
+  //
+  G4double module_sizeX = fFiberExtra+FiberLengthX+2*SiPMThikness+2*GlueEdges; //Remember to add detector here!!!!!
+  G4double module_sizeY = fFiberExtra+FiberLengthY+2*SiPMThikness+2*GlueEdges; //Remember to add detector here!!!!!
+  G4double module_sizeZ = CaloZ+2*FiberSize+0.5*mm;
+  G4double gap = 0.*cm;
+  G4int NModules = 1;
+  
+  //
+  //World
+  //
+  G4double world_sizeX = module_sizeX*2;
+  G4double world_sizeY = module_sizeY*2;
+  G4double world_sizeZ = NModules*(gap+module_sizeZ)*3;
+  
+  //
+  //Fiber
+  //
+  //G4double YviewFlag=true;
+  G4int NumberOfFiberX = (int)floor(CaloX/FiberSize);
+  G4int NumberOfFiberY = (int)floor(CaloY/FiberSize);
+  
+  //if(YviewFlag==false)
+  //  NumberOfFiberY = NumberOfFiberX;
+
+
+
+  ////////////////////////////////////////////
+  ////////////////////Material////////////////
+  ///////////////////////////////////////////
+
+  G4Material* world_mat = fMaterials->GetMaterial("Air");
+  G4Material* glue_mat = fMaterials->GetMaterial("GLUE");
+  G4Material* glueEdges_mat = fMaterials->GetMaterial("GLUE_EDGES"); //Il warning viene da qui, le due colle sono identiche
+  G4Material* tile_mat = fMaterials->GetMaterial("CsI");     //CsI
+  G4Material* core_mat = fMaterials->GetMaterial("PS");     //PS
+  G4Material* cladding_mat = fMaterials->GetMaterial("PMMA"); //PMMA
+  G4Material* SiPM_mat = fMaterials->GetMaterial("Si"); //Si
+  G4Material* wrapping_mat = fMaterials->GetMaterial("Mylar"); //Mylar
+
+  G4cout<<"Material properties"<<G4endl;
+  G4cout<<"Tile"<<G4endl;
+  tile_mat->GetMaterialPropertiesTable()->DumpTable();
+  G4cout<<"Glue"<<G4endl;
+  glue_mat->GetMaterialPropertiesTable()->DumpTable();
+  G4cout<<"Glue EDGES"<<G4endl;
+  glueEdges_mat->GetMaterialPropertiesTable()->DumpTable();
+  G4cout<<"Fiber Core"<<G4endl;
+  core_mat->GetMaterialPropertiesTable()->DumpTable();
+  G4cout<<"Fiber Cladding"<<G4endl;
+  cladding_mat->GetMaterialPropertiesTable()->DumpTable();
+  
+  
+  /////////////////////////////////////////////
+  ////////////////////Geometry////////////////
+  ////////////////////////////////////////////
+  
+  //
+  //World
+  //
+  G4Box* solidWorld = new G4Box("World",0.5*world_sizeX, 0.5*world_sizeY, 0.5*world_sizeZ);
+  G4LogicalVolume* logicWorld = new G4LogicalVolume(solidWorld,world_mat,"World");
+  G4VPhysicalVolume* physWorld = new G4PVPlacement(0,G4ThreeVector(),logicWorld,"World",0,false,0,checkOverlaps);
+
+  //
+  //Module
+  //
+  G4VSolid* solidModule = new G4Box("Module",0.5*module_sizeX, 0.5*module_sizeY, 0.5*module_sizeZ);
+  G4LogicalVolume* logicModule = new G4LogicalVolume(solidModule,world_mat,"Module");
+  char buff[10];
+  for(int i = 0 ;i<NModules;i++){
+    sprintf(buff,"Module_%d",i);
+    new G4PVPlacement(0,G4ThreeVector(0.,0.,-2*0.5*(module_sizeZ+gap)*i),logicModule,buff,logicWorld,true,i,checkOverlaps);
+  }
+  
+  //
+  // Calorimeter Volume
+  //
+  G4Box* solidCalo = new G4Box("Glue",0.5*CaloX, 0.5*CaloY, 0.5*CaloZ);
+  G4LogicalVolume* logicCalo = new G4LogicalVolume(solidCalo,glue_mat,"Glue");
+  G4VPhysicalVolume* PhysicalCalo =new G4PVPlacement(0,G4ThreeVector(),logicCalo,"Glue",logicModule,false,0,checkOverlaps);
+  
+  //
+  //Tiles volumes
+  //
+  G4Box* solidTile = new G4Box("Tile",0.5*TileX, 0.5*TileY, 0.5*TileZ);
+  G4LogicalVolume* logicTile = new G4LogicalVolume(solidTile,tile_mat,"Tile");
+  int ctile=0;
+  G4double xtile=0.;
+  G4double ytile=0.;
+  for (int iy=0;iy<NTile;iy++){
+    for (int ix=0;ix<NTile;ix++){
+      xtile=-0.5*CaloX+0.5*TileX+ix*(TileX+GlueThick);
+      ytile=-0.5*CaloY+0.5*TileY+iy*(TileY+GlueThick);
+      PhysicalTile.push_back(new G4PVPlacement(0,G4ThreeVector(xtile,ytile,0),logicTile,"Tile",logicCalo,true,ctile,checkOverlaps));
+      ctile++;
+    }
+  }
+
+  //
+  //Calo Glue Edges
+  //
+    
+  G4VSolid* solidCaloGlueEdge0 = new G4Box("CaloEdge",0.5*CaloX, 0.5*GlueEdges, 0.5*CaloZ);
+  G4VSolid* solidCaloGlueEdge1 = new G4Box("CaloEdge",0.5*CaloY, 0.5*GlueEdges, 0.5*CaloZ);
+
+  G4LogicalVolume* logicCaloGlueEdge0 = new G4LogicalVolume(solidCaloGlueEdge0,glueEdges_mat,"CaloEdge");
+  G4LogicalVolume* logicCaloGlueEdge1 = new G4LogicalVolume(solidCaloGlueEdge0,glueEdges_mat,"CaloEdge");
+  G4LogicalVolume* logicCaloGlueEdge2 = new G4LogicalVolume(solidCaloGlueEdge1,glueEdges_mat,"CaloEdge");
+  G4LogicalVolume* logicCaloGlueEdge3 = new G4LogicalVolume(solidCaloGlueEdge1,glueEdges_mat,"CaloEdge");
+
+  G4VPhysicalVolume* PhysicalCaloGlueEdgeXB=NULL;
+  G4VPhysicalVolume* PhysicalCaloGlueEdgeXA=NULL;
+  G4VPhysicalVolume* PhysicalCaloGlueEdgeYA=NULL;
+  G4VPhysicalVolume* PhysicalCaloGlueEdgeYB=NULL;
+
+  
+  if (fGlueEdges>0.){
+    
+    G4RotationMatrix* R0 = new G4RotationMatrix();
+    R0 -> set(0.*deg,0.*deg,0.*deg);
+    PhysicalCaloGlueEdgeXB=new G4PVPlacement(R0 ,G4ThreeVector(0.*cm,0.5*(CaloY+GlueEdges),0.*cm),logicCaloGlueEdge0,"CaloEdgeXB",logicModule,true,0,checkOverlaps);
+    
+    G4RotationMatrix* R1 = new G4RotationMatrix();
+    R1 -> set(0.*deg,0.*deg,0.*deg);
+    PhysicalCaloGlueEdgeXA = new  G4PVPlacement(R1 ,G4ThreeVector(0.*cm,-0.5*(CaloY+GlueEdges),0.*cm),logicCaloGlueEdge1,"CaloEdgeXA",logicModule,true,0,checkOverlaps);
+    
+    G4RotationMatrix* R2 = new G4RotationMatrix();
+    R2 -> set(90.*deg,0.*deg,0.*deg);
+    PhysicalCaloGlueEdgeYA = new G4PVPlacement(R2,G4ThreeVector(0.5*(CaloX+GlueEdges),0.*cm,0.*cm),logicCaloGlueEdge2,"CaloEdgeYA",logicModule,true,0,checkOverlaps);
+    
+    G4RotationMatrix* R3 = new G4RotationMatrix();
+    R3 -> set(90.*deg,0.*deg,0.*deg);
+    PhysicalCaloGlueEdgeYB = new G4PVPlacement(R3,G4ThreeVector(-0.5*(CaloX+GlueEdges),0.*cm,0.*cm),logicCaloGlueEdge3,"CaloEdgeYB",logicModule,true,0,checkOverlaps);
+  }
+  
+  //
+  //Calo SiPMs
+  //
+
+  G4VSolid* solidcaloSiPM= new G4Box("CaloSiPM",0.5*SiPMCaloSide, 0.5*SiPMCaloThikness, 0.5*SiPMCaloSide);
+  G4LogicalVolume* logicCaloSiPMA = new G4LogicalVolume(solidcaloSiPM, SiPM_mat, "CaloSiPMA");
+  
+  
+  const double pitchX = (TileX - 2*SiPMTileMargin - SiPMCaloSide)/(NCaloSiPMx-1);
+  const double pitchY = (TileY - 2*SiPMTileMargin - SiPMCaloSide)/(NCaloSiPMy-1);
+
+  auto rot0  = new G4RotationMatrix();                    
+  auto rot90 = new G4RotationMatrix();
+  rot90->set(90.*deg,0,0);
+
+  const double yEdgeTop    = +0.5*(CaloY + SiPMCaloThikness + 2*(GlueEdges));
+  const double yEdgeBottom = -yEdgeTop;
+
+  for (int ixTile=0; ixTile<NTile; ++ixTile) {
+      double xStart = -0.5*CaloX + ixTile*(TileX+GlueThick) + SiPMTileMargin + 0.5*SiPMCaloSide;
+      for (int i=0;i<NCaloSiPMx;++i) {
+          double xPad = xStart + i*pitchX;
+          int copyNo = ixTile*NCaloSiPMx + i;
+          PhysCaloSiPMXA.push_back(new G4PVPlacement(rot0, G4ThreeVector(xPad, yEdgeBottom +0.2*mm, 0.), logicCaloSiPMA, "CaloSiPMXA", logicModule, true, copyNo, checkOverlaps));
+      }
+  }
+
+  const double xEdgeRight = +0.5*(CaloX + SiPMCaloThikness + 2*(GlueEdges));
+
+  for (int iyTile=0; iyTile<NTile; ++iyTile) {
+      double yStart = -0.5*CaloY + iyTile*(TileY+GlueThick) + SiPMTileMargin + 0.5*SiPMCaloSide;
+      for (int i=0;i<NCaloSiPMy;++i) {
+        double yPad = yStart + i*pitchY;
+        int copyNo = iyTile*NCaloSiPMy + i;
+        PhysCaloSiPMYA.push_back(new G4PVPlacement(rot90, G4ThreeVector(xEdgeRight-0.2*mm, yPad, 0.), logicCaloSiPMA, "CaloSiPMYA", logicModule, true, copyNo, checkOverlaps));
+      }
+  }
+
+  
+  //
+  //Fiber Planes
+  //
+  G4VSolid* solidFiberPlane  = new G4Box("FiberPlane",0.5*FiberSize*NumberOfFiberX, 0.5*FiberLengthY+SiPMThikness, 0.5*FiberWidth);
+  G4LogicalVolume* logicFiberPlaneX = new G4LogicalVolume(solidFiberPlane,world_mat,"FiberPlaneX");
+  G4LogicalVolume* logicFiberPlaneY = new G4LogicalVolume(solidFiberPlane,world_mat,"FiberPlaneY");
+  G4VPhysicalVolume* PhysicalFiberPlaneX = new G4PVPlacement(0,G4ThreeVector(0.*cm,0.5 * fFiberExtra,0.5*(CaloZ+FiberSize)),logicFiberPlaneX,"FiberPlaneX",logicModule,false,0,checkOverlaps);
+  G4RotationMatrix* PlanYRotation = new G4RotationMatrix();
+  PlanYRotation->set(90.*deg,0.*deg,0.*deg);
+  G4VPhysicalVolume* PhysicalFiberPlaneY = new G4PVPlacement(PlanYRotation,G4ThreeVector(-0.5 * fFiberExtra,0.*cm,-0.5*(CaloZ+FiberSize)),logicFiberPlaneY,"FiberPlaneY",logicModule,false,0,checkOverlaps);
+  
+    
+  //
+  // Fiber volume
+  //
+  
+  G4VSolid* solidSiPM = new G4Box("FiberSiPM",0.5*FiberSize, 0.5*SiPMThikness, 0.5*FiberWidth);//0.5*fFiberSize); // Remember to use FiberSize instead of fFiberSize to remove the gap
+  G4VSolid* solidFiber = new G4Box("Fiber",0.5*FiberSize, 0.5*FiberLengthY, 0.5*FiberWidth);//0.5*fFiberSize); // Remember to use FiberSize instead of fFiberSize to remove the gap
+  
+  G4double CoreSize = FiberSize-FiberSize*CladdingPercentuage; // Remember to use FiberSize instead of fFiberSize to remove the gap
+  G4double CoreWidth = FiberWidth-FiberWidth*CladdingPercentuage; // Remember to use FiberSize instead of fFiberSize to remove the gap
+  G4VSolid* solidCore = new G4Box("Core",0.5*CoreSize, 0.5*FiberLengthY, 0.5*CoreWidth);//0.5*CoreSize);
+  G4VSolid* solidCladding = new G4SubtractionSolid("Cladding",solidFiber,solidCore);
+
+  
+  for (int i=0;i<NumberOfFiberX;i++){
+    
+    LogicFiberX.push_back(new G4LogicalVolume(solidFiber,world_mat,"FiberX"));
+    new G4PVPlacement(0,G4ThreeVector(-0.5*FiberSize*NumberOfFiberX+0.5*FiberSize+FiberSize*i,0.*cm,0.*cm),LogicFiberX.at(i),"FiberX",logicFiberPlaneX,true,i,checkOverlapsFiber);
+    
+    LogicCoreX.push_back(new G4LogicalVolume(solidCore,core_mat,"CoreX"));
+    PhysCoreX.push_back(new G4PVPlacement(0,G4ThreeVector(0.*cm,0.*cm,0.*cm),LogicCoreX.at(i),"CoreX",LogicFiberX.at(i),true,i,checkOverlapsFiber));
+    
+    LogicCladdingX.push_back(new G4LogicalVolume(solidCladding,cladding_mat,"CladdingX"));
+    PhysCladdingX.push_back(new G4PVPlacement(0,G4ThreeVector(0.*cm,0.*cm,0.*cm),LogicCladdingX.at(i),"CladdingX",LogicFiberX.at(i),true,i,checkOverlapsFiber));
+    
+    LogicSiPMXA.push_back(new G4LogicalVolume(solidSiPM,SiPM_mat,"SiPMXA"));
+    new G4PVPlacement(0,G4ThreeVector(-0.5*FiberSize*NumberOfFiberX+0.5*FiberSize+FiberSize*i,0.5*(FiberLengthY+SiPMThikness),0.*cm),LogicSiPMXA.at(i),"SiPMXA",logicFiberPlaneX,true,i,checkOverlapsFiber);
+    
+    LogicMirrorFiberX.push_back(new G4LogicalVolume(solidSiPM,SiPM_mat,"MirrorFiberX"));
+    PhysicalMirrorFiberX.push_back(new G4PVPlacement(0,G4ThreeVector(-0.5*FiberSize*NumberOfFiberX+0.5*FiberSize+FiberSize*i,-0.5*(FiberLengthY+SiPMThikness),0.*cm),LogicMirrorFiberX.at(i),"MirrorFiberX",logicFiberPlaneX,true,i,checkOverlapsFiber));
+    
+  }
+  
+  
+  for (int i=0;i<NumberOfFiberY;i++){
+    
+    LogicFiberY.push_back(new G4LogicalVolume(solidFiber,world_mat,"FiberY"));
+    new G4PVPlacement(0,G4ThreeVector(-0.5*FiberSize*NumberOfFiberY+0.5*FiberSize+FiberSize*i,0.*cm,0.*cm),LogicFiberY.at(i),"FiberY",logicFiberPlaneY,true,i,checkOverlapsFiber);
+    
+    LogicCoreY.push_back(new G4LogicalVolume(solidCore,core_mat,"CoreY"));
+    PhysCoreY.push_back(new G4PVPlacement(0,G4ThreeVector(0.*cm,0.*cm,0.*cm),LogicCoreY.at(i),"CoreY",LogicFiberY.at(i),true,i,checkOverlapsFiber));
+    
+    LogicCladdingY.push_back(new G4LogicalVolume(solidCladding,cladding_mat,"CladdingY"));
+    PhysCladdingY.push_back(new G4PVPlacement(0,G4ThreeVector(0.*cm,0.*cm,0.*cm),LogicCladdingY.at(i),"CladdingY",LogicFiberY.at(i),true,i,checkOverlapsFiber));
+    
+    LogicSiPMYA.push_back(new G4LogicalVolume(solidSiPM,SiPM_mat,"SiPMYA"));
+    new G4PVPlacement(0,G4ThreeVector(-0.5*FiberSize*NumberOfFiberX+0.5*FiberSize+FiberSize*i,0.5*(FiberLengthY+SiPMThikness),0.*cm),LogicSiPMYA.at(i),"SiPMYA",logicFiberPlaneY,true,i,checkOverlapsFiber);
+    
+    LogicMirrorFiberY.push_back(new G4LogicalVolume(solidSiPM,SiPM_mat,"MirrorFiberY"));
+    PhysicalMirrorFiberY.push_back(new G4PVPlacement(0,G4ThreeVector(-0.5*FiberSize*NumberOfFiberX+0.5*FiberSize+FiberSize*i,-0.5*(FiberLengthY+SiPMThikness),0.*cm),LogicMirrorFiberY.at(i),"MirrorFiberY",logicFiberPlaneY,true,i,checkOverlapsFiber));
+    
+  }
+  
+  //
+  //Calo wrapping
+  //
+  G4VSolid* solidWrapBig = new G4Box("WrapperBig", wrapX, wrapY, wrapZ);
+  G4VSolid* solidWrapSmall = new G4Box("WrapperSmall", 0.5*(CaloX+2*(GlueEdges)), 0.5*(CaloY+2*(GlueEdges)), wrapZ+3 ); 
+  G4VSolid* currentWrap = new G4SubtractionSolid("Wrapper", solidWrapBig, solidWrapSmall,0, G4ThreeVector(0.,0.,0.));
+  
+  
+  for (size_t i = 0; i < PhysCaloSiPMXA.size(); ++i) {
+    G4ThreeVector pos = PhysCaloSiPMXA.at(i)->GetObjectTranslation();
+    G4RotationMatrix* rot = PhysCaloSiPMXA.at(i)->GetObjectRotation();
+    currentWrap = new G4SubtractionSolid("Wrapping", currentWrap, solidcaloSiPM, rot, pos);
+  }
+
+  for (size_t i = 0; i < PhysCaloSiPMYA.size(); ++i) {
+    G4ThreeVector pos = PhysCaloSiPMYA.at(i)->GetObjectTranslation();
+    G4RotationMatrix* rot = PhysCaloSiPMYA.at(i)->GetObjectRotation();
+    currentWrap = new G4SubtractionSolid("Wrapping", currentWrap, solidcaloSiPM, rot, pos);
+  }
+
+  G4LogicalVolume* logicWrap = new G4LogicalVolume(currentWrap, wrapping_mat,"Wrapping");
+  G4VPhysicalVolume* PhysicalWrapping = new G4PVPlacement( 0, G4ThreeVector(), logicWrap, "Wrapping", logicModule, false, 0, checkOverlaps );
+
+
+  ///////////////////////////////////////
+  //// Sensitive Detector Activation ////
+  //////////////////////////////////////
+  
+  G4SDManager *SD_manager = G4SDManager::GetSDMpointer();
+  G4String SDModuleName = "/SensitiveDetector";
+  if(SD_manager->FindSensitiveDetector(SDModuleName,true))
+    delete(SD_manager->FindSensitiveDetector(SDModuleName,true));
+  SensitiveDetector *sensitiveModule = new SensitiveDetector(SDModuleName,"HitCollection","PhotonHitCollection","ComPairHitCollection");
+  SD_manager->AddNewDetector(sensitiveModule);
+  
+  logicWorld->SetSensitiveDetector(sensitiveModule);
+  logicTile->SetSensitiveDetector(sensitiveModule);
+  logicCalo->SetSensitiveDetector(sensitiveModule);
+  logicWrap->SetSensitiveDetector(sensitiveModule);
+
+  if(fGlueEdges>0.){
+    logicCaloGlueEdge0->SetSensitiveDetector(sensitiveModule);
+    logicCaloGlueEdge1->SetSensitiveDetector(sensitiveModule);
+    logicCaloGlueEdge2->SetSensitiveDetector(sensitiveModule);
+    logicCaloGlueEdge3->SetSensitiveDetector(sensitiveModule);
+  }
+  
+  logicCaloSiPMA->SetSensitiveDetector(sensitiveModule);
+
+  for (int i=0;i<NumberOfFiberX;i++){
+    LogicCoreX.at(i)->SetSensitiveDetector(sensitiveModule);
+    LogicCladdingX.at(i)->SetSensitiveDetector(sensitiveModule);
+    LogicSiPMXA.at(i)->SetSensitiveDetector(sensitiveModule);
+    LogicMirrorFiberX.at(i)->SetSensitiveDetector(sensitiveModule);
+  }
+  for (int i=0;i<NumberOfFiberY;i++){
+    LogicCoreY.at(i)->SetSensitiveDetector(sensitiveModule);
+    LogicCladdingY.at(i)->SetSensitiveDetector(sensitiveModule);
+    LogicSiPMYA.at(i)->SetSensitiveDetector(sensitiveModule);
+    LogicMirrorFiberY.at(i)->SetSensitiveDetector(sensitiveModule);
+  }
+
+  ////////////////////////////////////////////
+  ////////////////// Optical Surfaces ////////
+  ///////////////////////////////////////////
+
+  G4OpticalSurface* PerfectMirror = new G4OpticalSurface("Perfect Mirror");
+  PerfectMirror-> SetModel(unified);
+  PerfectMirror-> SetType(dielectric_metal);
+  PerfectMirror-> SetFinish(polished);
+  PerfectMirror-> SetSigmaAlpha(0.1);
+  const G4int NUM = 2;
+  G4double pp[NUM] = {1.0*eV, 5.0*eV};
+  G4double specularlobe[NUM] = {0,0};
+  G4double specularspike[NUM] = {0,0};
+  G4double backscatter[NUM] = {0,0};
+  G4double reflectivity[NUM] = {1,1};
+  G4double transmittance[NUM] = {0,0};
+  G4double efficiency[NUM] = {1,1};
+
+  G4MaterialPropertiesTable* mpt_Surface = new G4MaterialPropertiesTable();
+  mpt_Surface -> AddProperty("SPECULARLOBECONSTANT",pp,specularlobe,NUM);
+  mpt_Surface -> AddProperty("SPECULARSPIKECONSTANT",pp,specularspike,NUM);
+  mpt_Surface -> AddProperty("BACKSCATTERCONSTANT",pp,backscatter,NUM);
+  mpt_Surface -> AddProperty("REFLECTIVITY",pp,reflectivity,NUM);
+  mpt_Surface -> AddProperty("TRANSMITTANCE",pp,transmittance,NUM);
+  mpt_Surface -> AddProperty("EFFICIENCY",pp,efficiency,NUM);
+  PerfectMirror-> SetMaterialPropertiesTable(mpt_Surface);
+
+
+  G4OpticalSurface* PerfectAbsorber = new G4OpticalSurface("Perfect Absorber");
+  PerfectAbsorber-> SetModel(unified);
+  PerfectAbsorber-> SetType(dielectric_dielectric);
+  PerfectAbsorber-> SetFinish(ground);
+  PerfectAbsorber-> SetSigmaAlpha(0.1);
+  const G4int NUMpa = 2;
+  G4double pppa[NUMpa] = {1.0*eV, 5.0*eV};
+  G4double specularlobepa[NUMpa] = {0,0};
+  G4double specularspikepa[NUMpa] = {0,0};
+  G4double backscatterpa[NUMpa] = {0,0};
+  G4double reflectivitypa[NUMpa] = {0,0};
+  G4double transmittancepa[NUMpa] = {1,1};
+  G4double efficiencypa[NUMpa] = {1,1};
+
+  G4MaterialPropertiesTable* mpt_Surfacepa = new G4MaterialPropertiesTable();
+  mpt_Surfacepa -> AddProperty("SPECULARLOBECONSTANT",pppa,specularlobepa,NUMpa);
+  mpt_Surfacepa -> AddProperty("SPECULARSPIKECONSTANT",pppa,specularspikepa,NUMpa);
+  mpt_Surfacepa -> AddProperty("BACKSCATTERCONSTANT",pppa,backscatterpa,NUMpa);
+  mpt_Surfacepa -> AddProperty("REFLECTIVITY",pppa,reflectivitypa,NUMpa);
+  mpt_Surfacepa -> AddProperty("TRANSMITTANCE",pppa,transmittancepa,NUMpa);
+  mpt_Surfacepa -> AddProperty("EFFICIENCY",pppa,efficiencypa,NUMpa);
+  PerfectAbsorber-> SetMaterialPropertiesTable(mpt_Surfacepa);
+
+
+
+  new G4LogicalBorderSurface("Perfect Mirror", PhysicalCaloGlueEdgeXB, PhysicalWrapping, PerfectMirror);
+  new G4LogicalBorderSurface("Perfect Mirror", PhysicalCaloGlueEdgeYB, PhysicalWrapping, PerfectMirror);
+  new G4LogicalBorderSurface("Perfect Absorber", PhysicalCaloGlueEdgeXA, PhysicalWrapping, PerfectAbsorber);
+  new G4LogicalBorderSurface("Perfect Absorber", PhysicalCaloGlueEdgeYA, PhysicalWrapping, PerfectAbsorber);
+  new G4LogicalBorderSurface("Perfect Absorber", PhysicalCaloGlueEdgeYA, PhysicalWrapping, PerfectAbsorber);
+  for (int i=0;i<NumberOfFiberY;i++){
+    new G4LogicalBorderSurface("Perfect Mirror",PhysCoreY.at(i), PhysicalMirrorFiberY.at(i),PerfectMirror);
+    new G4LogicalBorderSurface("Perfect Mirror",PhysCladdingY.at(i), PhysicalMirrorFiberY.at(i),PerfectMirror);
+  }
+
+  for (int i=0;i<NumberOfFiberX;i++){
+    new G4LogicalBorderSurface("Perfect Mirror",PhysCoreX.at(i), PhysicalMirrorFiberX.at(i),PerfectMirror);
+    new G4LogicalBorderSurface("Perfect Mirror",PhysCladdingX.at(i), PhysicalMirrorFiberX.at(i),PerfectMirror);
+  }
+
+  
+
+ 
+ /////////////////////////////////////////////////
+ ////////////////////Visualization////////////////
+ /////////////////////////////////////////////////
+
+ 
+  auto ModulePlaneVis = new G4VisAttributes(G4Colour(0.8,0.1,0.1));
+  ModulePlaneVis->SetVisibility(true);
+  
+  //auto FiberPlaneVis = new G4VisAttributes(G4Colour(0.8,0.7,0.1));
+  //logicFiberPlaneX->SetVisAttributes(G4VisAttributes::GetInvisible());
+  //logicFiberPlaneY->SetVisAttributes(G4VisAttributes::GetInvisible());
+  
+  auto FiberVis = new G4VisAttributes(G4Colour(0.55, 0.85, 0.40, 0.55));
+  FiberVis->SetVisibility(true);
+  FiberVis->SetForceSolid(true);
+  
+  auto WrapVis = new G4VisAttributes(G4Colour(0.40	,0.70,	0.90	,1.0));
+  WrapVis->SetVisibility(true);
+  WrapVis->SetForceSolid(true);
+  
+  auto CaloVis = new G4VisAttributes(G4Colour(1.0,0.0,0.0));
+  CaloVis->SetVisibility(false);
+  CaloVis->SetForceSolid(true);
+  
+  auto TileVis = new G4VisAttributes(G4Colour(0.9, 0.9, 0.9));
+  TileVis->SetVisibility(true);
+  TileVis->SetForceSolid(true);
+  
+  auto SiPMVis = new G4VisAttributes(G4Colour(0.0,0.0,1.0));
+  SiPMVis->SetVisibility(true);
+  SiPMVis->SetForceSolid(true);
+  
+  auto SiPMVisA = new G4VisAttributes(G4Colour(0.56, 0.13, 1.00));
+  SiPMVisA->SetVisibility(true);
+  SiPMVisA->SetForceSolid(true);
+  
+  auto SiPMVisB = new G4VisAttributes(G4Colour(0.30, 0.30, 0.30));
+  SiPMVisB->SetVisibility(true);
+  SiPMVisB->SetForceSolid(true);
+  
+  auto SiPMVisCalo = new G4VisAttributes(G4Colour(0.10, 0.60, 1.00)); 
+  SiPMVisCalo->SetVisibility(true);
+  SiPMVisCalo->SetForceSolid(true);
+  
+  auto GlueEdgeVis = new G4VisAttributes(G4Colour(0.98, 0.85, 0.75,0.5));
+  GlueEdgeVis->SetVisibility(true);
+  GlueEdgeVis->SetForceSolid(true);
+  
+  auto CoreVis = new G4VisAttributes(G4Colour(0.5,0.5,0));
+  CoreVis->SetVisibility(false);
+  CoreVis->SetForceSolid(true);
+  
+  auto CladdingVis = new G4VisAttributes(G4Colour(1,1,1));
+  CladdingVis->SetVisibility(false);
+  CladdingVis->SetForceSolid(true);
+  
+
+
+  logicWorld->SetVisAttributes(G4VisAttributes::GetInvisible());
+  logicModule->SetVisAttributes(ModulePlaneVis);
+  logicTile->SetVisAttributes(TileVis);
+  logicWrap->SetVisAttributes(WrapVis);
+ 
+  logicCalo->SetVisAttributes(CaloVis);
+  logicCaloSiPMA->SetVisAttributes(SiPMVisA);
+
+  for (int i=0;i<NumberOfFiberX;i++){
+    LogicFiberX.at(i)->SetVisAttributes (FiberVis);
+  }
+  
+  for (int i=0;i<NumberOfFiberY;i++){
+    LogicFiberY.at(i)->SetVisAttributes (FiberVis);
+  }
+  
+  if (fGlueEdges>0.){
+    logicCaloGlueEdge0->SetVisAttributes(GlueEdgeVis);
+    logicCaloGlueEdge1->SetVisAttributes(GlueEdgeVis);
+    logicCaloGlueEdge2->SetVisAttributes(GlueEdgeVis);
+    logicCaloGlueEdge3->SetVisAttributes(GlueEdgeVis);
+  }
+  
+  for (int i=0;i<NumberOfFiberX;i++){
+    LogicCoreX.at(i)->SetVisAttributes(CoreVis);
+    LogicCladdingX.at(i)->SetVisAttributes(CladdingVis);
+    LogicSiPMXA.at(i)->SetVisAttributes(SiPMVisA);
+    LogicMirrorFiberX.at(i)->SetVisAttributes(SiPMVisB);
+  }
+  
+  for (int i=0;i<NumberOfFiberY;i++){
+    LogicCoreY.at(i)->SetVisAttributes(CoreVis);
+    LogicCladdingY.at(i)->SetVisAttributes(CladdingVis);
+    LogicSiPMYA.at(i)->SetVisAttributes(SiPMVisA);
+    LogicMirrorFiberY.at(i)->SetVisAttributes(SiPMVisB);
+  }
+  
+  return physWorld;
+
+}
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
